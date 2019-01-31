@@ -1,23 +1,19 @@
 package com.kondee.testwattpadview
 
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.telephony.PhoneNumberFormattingTextWatcher
+import android.telephony.PhoneNumberUtils
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.TypedValue
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.kondee.testwattpadview.recyclerview.adapter.TestVDHAdapter
-import com.kondee.testwattpadview.service.HttpManager
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_main_view_drag_helper.*
 
 class MainVDHActivity : AppCompatActivity() {
 
     var page = 1
-    private val compositeDisposable = CompositeDisposable()
-
-    private val mAdapter = TestVDHAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,37 +24,26 @@ class MainVDHActivity : AppCompatActivity() {
 
     private fun initInstance() {
 
-        callServiceGetUser(page)
+        layout_container.setFragment(supportFragmentManager, TestSlidingViewHorizontalFragment.newInstance(page))
 
-        recycler_view.apply {
-            layoutManager = LinearLayoutManager(this@MainVDHActivity)
-            adapter = mAdapter
-        }
+        layout_container.setPageSize(4)
 
         layout_container.setOnPageChangeListener(object : SlidingPageLayout.OnPageChangeListener {
+
+            override fun currentPage(page: Int, isPrevious: Boolean) {
+                layout_container.setFragment(supportFragmentManager, TestSlidingViewHorizontalFragment.newInstance(page + 1, isPrevious))
+            }
+
             override fun prevPage() {
-                callServiceGetUser(page - 1)
+//                page--
+//                layout_container.setFragment(supportFragmentManager, TestSlidingViewVerticalFragment.newInstance(page))
             }
 
             override fun nextPage() {
-                callServiceGetUser(page + 1)
+//                page++
+//                layout_container.setFragment(supportFragmentManager, TestSlidingViewVerticalFragment.newInstance(page))
             }
         })
-    }
-
-    private fun callServiceGetUser(page1: Int) {
-
-//        TODO()
-//        mAdapter.setLoading()
-
-        compositeDisposable.add(
-                HttpManager.service.getUsers(page1)
-                        .subscribeOn(Schedulers.newThread())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe {
-                            mAdapter.setData(it)
-                        }
-        )
     }
 
     private fun dp2px(dp: Number): Float {
