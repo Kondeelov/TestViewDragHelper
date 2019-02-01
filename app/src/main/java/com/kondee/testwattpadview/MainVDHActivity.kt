@@ -1,13 +1,7 @@
 package com.kondee.testwattpadview
 
-import android.os.Build
 import android.os.Bundle
-import android.telephony.PhoneNumberFormattingTextWatcher
-import android.telephony.PhoneNumberUtils
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.TypedValue
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main_view_drag_helper.*
 
@@ -24,14 +18,14 @@ class MainVDHActivity : AppCompatActivity() {
 
     private fun initInstance() {
 
-        layout_container.setFragment(supportFragmentManager, TestSlidingViewHorizontalFragment.newInstance(page))
+        layout_container.setFragment(supportFragmentManager, TestSlidingViewVerticalFragment.newInstance(page))
 
         layout_container.setPageSize(4)
 
         layout_container.setOnPageChangeListener(object : SlidingPageLayout.OnPageChangeListener {
 
             override fun currentPage(page: Int, isPrevious: Boolean) {
-                layout_container.setFragment(supportFragmentManager, TestSlidingViewHorizontalFragment.newInstance(page + 1, isPrevious))
+                layout_container.setFragment(supportFragmentManager, TestSlidingViewVerticalFragment.newInstance(page + 1, isPrevious))
             }
 
             override fun prevPage() {

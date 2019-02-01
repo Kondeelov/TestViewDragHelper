@@ -17,7 +17,7 @@ import androidx.fragment.app.FragmentManager
 class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: AttributeSet) :
         FrameLayout(context, attrs) {
 
-    private val heightScale = 0.93f
+    private val sizeScale = 0.93f
     private var mPage: Int = 0
 
     private inner class SlidingPageDragHelper : ViewDragHelper.Callback() {
@@ -52,6 +52,8 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                 return 0
             }
 
+            mLastOffsetTop = top
+
             return top
         }
 
@@ -83,12 +85,17 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                 return 0
             }
 
+            mLastOffsetLeft = left
+
             return left
         }
 
-
         override fun onViewReleased(releasedChild: View, xvel: Float, yvel: Float) {
             super.onViewReleased(releasedChild, xvel, yvel)
+
+            if (isAnimate || mState == STATE.PREV_PAGE || mState == STATE.NEXT_PAGE) {
+                return
+            }
 
             slidingView?.let {
 
@@ -102,6 +109,9 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                                 yvel < 0 -> {
                                     expandView(it)
                                 }
+                                else -> {
+                                    smoothScrollVertical(it)
+                                }
                             }
                         } else if (mState == STATE.EXPANDED) {
                             when {
@@ -111,19 +121,13 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                                 yvel < 0 -> {
                                     nextView(it)
                                 }
+                                else -> {
+                                    smoothScrollVertical(it)
+                                }
                             }
                         }
                     } else {
-
-                        if (it.y > height + (height / 4)) {
-                            previousView(it)
-                        } else if (it.y > (height * heightScale) / 2) {
-                            collapseView(it)
-                        } else if (it.y > -(height / 4)) {
-                            expandView(it)
-                        } else {
-                            nextView(it)
-                        }
+                        smoothScrollVertical(it)
                     }
                 } else {
                     if (Math.abs(xvel) >= VELOCITY_THRESHOLD) {
@@ -135,6 +139,9 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                                 xvel < 0 -> {
                                     expandView(it)
                                 }
+                                else -> {
+                                    smoothScrollHorizontal(it)
+                                }
                             }
                         } else if (mState == STATE.EXPANDED) {
                             when {
@@ -144,28 +151,48 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                                 xvel < 0 -> {
                                     nextView(it)
                                 }
+                                else -> {
+                                    smoothScrollHorizontal(it)
+                                }
                             }
                         }
                     } else {
-
-                        if (it.x > width + (width / 4)) {
-                            previousView(it)
-                        } else if (it.x > (width * heightScale) / 2) {
-                            collapseView(it)
-                        } else if (it.x > -(width / 4)) {
-                            expandView(it)
-                        } else {
-                            nextView(it)
-                        }
+                        smoothScrollHorizontal(it)
                     }
                 }
+
+                scaleView(it)
             }
 
             ViewCompat.postInvalidateOnAnimation(this@SlidingPageLayout)
         }
     }
 
-    private var mOrientation: ORIENTATION = ORIENTATION.VERTICAL
+    private fun smoothScrollVertical(v: View) {
+        if (v.y > height + (height / 4)) {
+            previousView(v)
+        } else if (v.y > (height * sizeScale) / 2) {
+            collapseView(v)
+        } else if (v.y > -(height / 4)) {
+            expandView(v)
+        } else {
+            nextView(v)
+        }
+    }
+
+    private fun smoothScrollHorizontal(v: View) {
+        if (v.x > width + (width / 4)) {
+            previousView(v)
+        } else if (v.x > (width * sizeScale) / 2) {
+            collapseView(v)
+        } else if (v.x > -(width / 4)) {
+            expandView(v)
+        } else {
+            nextView(v)
+        }
+    }
+
+    var mOrientation: ORIENTATION = ORIENTATION.VERTICAL
 
     init {
 
@@ -198,19 +225,6 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
 
         viewDragHelper = ViewDragHelper.create(this, 1.0f, SlidingPageDragHelper())
 
-//        if (childCount == 2) {
-//            mainView = getChildAt(0)
-//            slidingView = getChildAt(1)
-//
-//            post {
-//                slidingView?.let {
-//                    collapseView(it)
-//                }
-//
-//                ViewCompat.postInvalidateOnAnimation(this@SlidingPageLayout)
-//            }
-//        }
-
         if (childCount == 1) {
             mainView = getChildAt(0)
             slidingView = FrameLayout(context)
@@ -218,6 +232,7 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                 layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
                 slidingViewId = ViewCompat.generateViewId()
                 id = slidingViewId
+                contentDescription = "SlidingView"
                 isClickable = true
             }
 
@@ -339,6 +354,20 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
             return false
         }
 
+        if (event.pointerCount > 1) {
+            if (mOrientation == ORIENTATION.VERTICAL) {
+                slidingView?.let {
+                    smoothScrollVertical(it)
+                }
+            } else {
+                slidingView?.let {
+                    smoothScrollHorizontal(it)
+                }
+            }
+            ViewCompat.postInvalidateOnAnimation(this@SlidingPageLayout)
+            return false
+        }
+
         slidingView?.let {
             viewDragHelper?.captureChildView(it, event.getPointerId(0))
         }
@@ -353,6 +382,8 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
         slidingView?.let {
             it.offsetTopAndBottom(mLastOffsetTop)
             it.offsetLeftAndRight(mLastOffsetLeft)
+
+            scaleView(it)
         }
     }
 
@@ -398,9 +429,9 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
 
     private fun collapseView(v: View) {
         if (mOrientation == ORIENTATION.VERTICAL) {
-            viewDragHelper?.smoothSlideViewTo(v, v.left, (height * heightScale).toInt())
+            viewDragHelper?.smoothSlideViewTo(v, v.left, (height * sizeScale).toInt())
         } else {
-            viewDragHelper?.smoothSlideViewTo(v, (width * heightScale).toInt(), v.top)
+            viewDragHelper?.smoothSlideViewTo(v, (width * sizeScale).toInt(), v.top)
         }
 
         mState = STATE.COLLAPSED
