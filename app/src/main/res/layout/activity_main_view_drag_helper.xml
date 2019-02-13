@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.kondee.testwattpadview.SlidingPageLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.kondee.testwattpadview.SlidingPageLayoutV2 xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/layout_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     app:slide_orientation="vertical"
+    app:sliding_view_id="@id/contentContainer"
     tools:context=".MainMotionActivity">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -44,4 +45,9 @@
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
-</com.kondee.testwattpadview.SlidingPageLayout>
+
+    <FrameLayout
+        android:id="@+id/contentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+</com.kondee.testwattpadview.SlidingPageLayoutV2>

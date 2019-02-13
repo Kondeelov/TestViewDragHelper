@@ -2,8 +2,9 @@
 <resources>
     <declare-styleable name="SlidingPageLayout">
         <attr name="slide_orientation" format="enum">
-            <enum name="vertical" value="0" />
-            <enum name="horizontal" value="1" />
+            <enum name="vertical" value="0"/>
+            <enum name="horizontal" value="1"/>
         </attr>
+        <attr name="sliding_view_id" format="reference"/>
     </declare-styleable>
 </resources>

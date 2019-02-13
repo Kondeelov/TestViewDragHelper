@@ -5,24 +5,30 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.annotation.IdRes
 import androidx.annotation.IntRange
-import androidx.core.content.withStyledAttributes
 import androidx.core.view.ViewCompat
 import androidx.customview.widget.ViewDragHelper
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
+import io.reactivex.subjects.PublishSubject
 
 class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: AttributeSet) :
-        FrameLayout(context, attrs) {
+    FrameLayout(context, attrs) {
 
     private val sizeScale = 0.93f
     private var mPage: Int = 0
 
+    private val stateSubject = PublishSubject.create<STATE>()
+
     private inner class SlidingPageDragHelper : ViewDragHelper.Callback() {
         override fun tryCaptureView(child: View, pointerId: Int): Boolean {
-            return child != mainView
+            return true
         }
 
         //      Vertical Orientation
@@ -51,6 +57,17 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
             if (isAnimate) {
                 return 0
             }
+
+            if (mLock) {
+                return 0
+            }
+
+            if (mState != STATE.DRAGGING) {
+                mLastState = mState
+            }
+            mState = STATE.DRAGGING
+
+            stateSubject.onNext(mState)
 
             mLastOffsetTop = top
 
@@ -85,15 +102,33 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                 return 0
             }
 
+            if (mLock) {
+                return 0
+            }
+
+            if (mState != STATE.DRAGGING) {
+                mLastState = mState
+            }
+            mState = STATE.DRAGGING
+
+            stateSubject.onNext(mState)
+
             mLastOffsetLeft = left
 
             return left
         }
 
+        override fun onViewDragStateChanged(state: Int) {
+            super.onViewDragStateChanged(state)
+            if (state == 1) {
+                mRealState = STATE.DRAGGING
+            }
+        }
+
         override fun onViewReleased(releasedChild: View, xvel: Float, yvel: Float) {
             super.onViewReleased(releasedChild, xvel, yvel)
 
-            if (isAnimate || mState == STATE.PREV_PAGE || mState == STATE.NEXT_PAGE) {
+            if (isAnimate || mState == STATE.PREV_PAGE || mState == STATE.NEXT_PAGE || mLock) {
                 return
             }
 
@@ -101,7 +136,7 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
 
                 if (mOrientation == ORIENTATION.VERTICAL) {
                     if (Math.abs(yvel) >= VELOCITY_THRESHOLD) {
-                        if (mState == STATE.COLLAPSED) {
+                        if (mLastState == STATE.COLLAPSED) {
                             when {
                                 yvel > 0 -> {
                                     previousView(it)
@@ -113,7 +148,7 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                                     smoothScrollVertical(it)
                                 }
                             }
-                        } else if (mState == STATE.EXPANDED) {
+                        } else if (mLastState == STATE.EXPANDED) {
                             when {
                                 yvel > 0 -> {
                                     collapseView(it)
@@ -131,7 +166,7 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                     }
                 } else {
                     if (Math.abs(xvel) >= VELOCITY_THRESHOLD) {
-                        if (mState == STATE.COLLAPSED) {
+                        if (mLastState == STATE.COLLAPSED) {
                             when {
                                 xvel > 0 -> {
                                     previousView(it)
@@ -143,7 +178,7 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                                     smoothScrollHorizontal(it)
                                 }
                             }
-                        } else if (mState == STATE.EXPANDED) {
+                        } else if (mLastState == STATE.EXPANDED) {
                             when {
                                 xvel > 0 -> {
                                     collapseView(it)
@@ -193,18 +228,45 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
     }
 
     var mOrientation: ORIENTATION = ORIENTATION.VERTICAL
+    private var slidingViewId: Int = -1
 
     init {
 
-        context.withStyledAttributes(attrs, R.styleable.SlidingPageLayout) {
-            mOrientation = ORIENTATION.getOrientation(getInt(R.styleable.SlidingPageLayout_slide_orientation, 0))
+        val a = context.obtainStyledAttributes(attrs, R.styleable.SlidingPageLayout)
+
+        try {
+            mOrientation = ORIENTATION.getOrientation(a.getInt(R.styleable.SlidingPageLayout_slide_orientation, 0))
+            slidingViewId = a.getResourceId(R.styleable.SlidingPageLayout_sliding_view_id, ViewCompat.generateViewId())
+        } finally {
+            a.recycle()
         }
+
+        stateSubject.subscribeOn(Schedulers.newThread())
+            .observeOn(AndroidSchedulers.mainThread())
+            .distinctUntilChanged()
+            .subscribe {
+                mPageListener?.onStageChange(it)
+
+                if (it == STATE.EXPANDED) {
+
+                    if (currentFragment != lastFragment) {
+                        mFragmentManager?.let { fm ->
+                            fm.beginTransaction()
+                                .replace(slidingViewId, currentFragment!!)
+                                .commit()
+
+                            lastFragment = currentFragment
+                        }
+                    }
+                }
+            }
     }
 
     private var slidingView: View? = null
-    private var mainView: View? = null
 
     private var mState = STATE.EXPANDED
+
+    private var mLastState = STATE.COLLAPSED
 
     private var viewDragHelper: ViewDragHelper? = null
 
@@ -218,7 +280,7 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
 
     private var mPageListener: SlidingPageLayout.OnPageChangeListener? = null
 
-    private var slidingViewId: Int = -1
+    private var mRealState = STATE.EXPANDED
 
     override fun onFinishInflate() {
         super.onFinishInflate()
@@ -226,17 +288,17 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
         viewDragHelper = ViewDragHelper.create(this, 1.0f, SlidingPageDragHelper())
 
         if (childCount == 1) {
-            mainView = getChildAt(0)
             slidingView = FrameLayout(context)
             slidingView?.apply {
                 layoutParams = FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-                slidingViewId = ViewCompat.generateViewId()
                 id = slidingViewId
                 contentDescription = "SlidingView"
                 isClickable = true
             }
 
             addView(slidingView, 1)
+        } else {
+            slidingView = findViewById(slidingViewId)
         }
     }
 
@@ -253,10 +315,14 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
 
         } else {
 
+            stateSubject.onNext(mState)
+
             when (mState) {
                 STATE.NEXT_PAGE -> {
 
                     mPage += 1
+
+//                    (currentFragment as NovelReaderFragment?)?.resetView()
 
                     mPageListener?.currentPage(mPage, false)
 
@@ -276,6 +342,8 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
 
                     mPage -= 1
 
+//                    (currentFragment as NovelReaderFragment?)?.resetView()
+
                     mPageListener?.currentPage(mPage, true)
 
                     slidingView?.let {
@@ -290,15 +358,21 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
                         ViewCompat.postInvalidateOnAnimation(this@SlidingPageLayout)
                     }
                 }
-                else -> {
+                STATE.EXPANDED, STATE.COLLAPSED -> {
                     isAnimate = false
                     mLastOffsetTop = slidingView?.top ?: 0
                     mLastOffsetLeft = slidingView?.left ?: 0
                 }
             }
-
         }
     }
+
+    private val viewConfiguration: ViewConfiguration
+        get() {
+            return ViewConfiguration.get(context)
+        }
+
+    private val scaledTouchSlop = viewConfiguration.scaledTouchSlop
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isAnimate) {
@@ -312,32 +386,50 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
             }
             MotionEvent.ACTION_MOVE -> {
                 if (mState == STATE.COLLAPSED) {
+                    if (mOrientation == ORIENTATION.VERTICAL) {
+                        if (Math.abs(ev.y - lastY) < 1) {
+                            return false
+                        }
+                    } else {
+                        if (Math.abs(ev.x - lastX) < 1) {
+                            return false
+                        }
+                    }
+
                     viewDragHelper?.shouldInterceptTouchEvent(ev)
                     return true
                 }
 
+                val rootFragment = currentFragment?.view as ViewGroup?
+                val scrollChild = rootFragment?.findViewById(mScrollChildId) as View?
+
                 if (mOrientation == ORIENTATION.VERTICAL) {
 
                     if (lastY < ev.y) {
-                        if ((currentFragment?.view as ViewGroup?)?.getChildAt(0)?.canScrollVertically(-1) == true) {
+                        if (scrollChild?.canScrollVertically(-1) == true) {
                             return false
                         }
                     } else if (lastY > ev.y) {
-                        if ((currentFragment?.view as ViewGroup?)?.getChildAt(0)?.canScrollVertically(1) == true) {
+                        if (scrollChild?.canScrollVertically(1) == true) {
                             return false
                         }
                     }
                 } else {
 
                     if (lastX < ev.x) {
-                        if ((currentFragment?.view as ViewGroup?)?.getChildAt(0)?.canScrollHorizontally(-1) == true) {
+                        if (scrollChild?.canScrollHorizontally(-1) == true) {
                             return false
                         }
                     } else if (lastX > ev.x) {
-                        if ((currentFragment?.view as ViewGroup?)?.getChildAt(0)?.canScrollHorizontally(1) == true) {
+                        if (scrollChild?.canScrollHorizontally(1) == true) {
                             return false
                         }
                     }
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                if (Math.abs(ev.x - lastX) < scaledTouchSlop && Math.abs(ev.y - lastY) < scaledTouchSlop /*&& currentTime - lastTime <= ViewConfiguration.getJumpTapTimeout()*/) {
+                    return false
                 }
             }
         }
@@ -345,7 +437,8 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
         if (viewDragHelper?.shouldInterceptTouchEvent(ev) == true) {
             return true
         }
-        return super.onInterceptTouchEvent(ev)
+
+        return false
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -379,11 +472,11 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
 
-        slidingView?.let {
-            it.offsetTopAndBottom(mLastOffsetTop)
-            it.offsetLeftAndRight(mLastOffsetLeft)
+        if (slidingView != null) {
+            slidingView?.offsetTopAndBottom(mLastOffsetTop)
+            slidingView?.offsetLeftAndRight(mLastOffsetLeft)
 
-            scaleView(it)
+            scaleView(slidingView!!)
         }
     }
 
@@ -417,21 +510,48 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
         mState = STATE.PREV_PAGE
     }
 
-    private fun expandView(v: View) {
+    private fun expandView(v: View, isAnimate: Boolean = true) {
+        var leftV = 0
+        var topV = 0
+
         if (mOrientation == ORIENTATION.VERTICAL) {
-            viewDragHelper?.smoothSlideViewTo(v, v.left, 0)
+            leftV = v.left
+            topV = 0
         } else {
-            viewDragHelper?.smoothSlideViewTo(v, 0, v.top)
+            leftV = 0
+            topV = v.top
+        }
+
+        if (isAnimate) {
+            viewDragHelper?.smoothSlideViewTo(v, leftV, topV)
+        } else {
+            v.left = 0
+            v.top = 0
+            v.offsetTopAndBottom(leftV)
+            v.offsetLeftAndRight(topV)
         }
 
         mState = STATE.EXPANDED
     }
 
-    private fun collapseView(v: View) {
+    private fun collapseView(v: View, isAnimate: Boolean = true) {
+        var leftV = 0
+        var topV = 0
         if (mOrientation == ORIENTATION.VERTICAL) {
-            viewDragHelper?.smoothSlideViewTo(v, v.left, (height * sizeScale).toInt())
+            leftV = v.left
+            topV = (height * sizeScale).toInt()
         } else {
-            viewDragHelper?.smoothSlideViewTo(v, (width * sizeScale).toInt(), v.top)
+            leftV = (width * sizeScale).toInt()
+            topV = v.top
+        }
+
+        if (isAnimate) {
+            viewDragHelper?.smoothSlideViewTo(v, leftV, topV)
+        } else {
+            v.offsetTopAndBottom(-(v.left))
+            v.offsetTopAndBottom(leftV)
+            v.offsetLeftAndRight(-(v.top))
+            v.offsetLeftAndRight(topV)
         }
 
         mState = STATE.COLLAPSED
@@ -465,19 +585,24 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
         view.scaleY = scale
     }
 
-    fun setOnPageChangeListener(listener: OnPageChangeListener) {
-        mPageListener = listener
-    }
-
     private var currentFragment: Fragment? = null
+
+    private var lastFragment: Fragment? = null
+
+    private var mFragmentManager: FragmentManager? = null
 
     fun setFragment(fm: FragmentManager, fragment: Fragment) {
 
         currentFragment = fragment
 
-        fm.beginTransaction()
-                .replace(slidingViewId, fragment)
-                .commit()
+        mFragmentManager = fm
+//        val subscribe = stateSubject
+//                .subscribeOn(Schedulers.newThread())
+//                .observeOn(AndroidSchedulers.mainThread())
+//                .subscribe {
+//
+//                }
+
     }
 
     private var mSize: Int = 0
@@ -494,16 +619,29 @@ class SlidingPageLayout @JvmOverloads constructor(context: Context, attrs: Attri
         mPage = page
     }
 
+    private var mScrollChildId: Int = -1
+
+    fun setScrollableChildId(@IdRes id: Int) {
+        mScrollChildId = id
+    }
+
+    fun setOnPageChangeListener(listener: OnPageChangeListener) {
+        mPageListener = listener
+    }
+
+    private var mLock: Boolean = false
+
+    fun setLockScroll(lock: Boolean) {
+        mLock = lock
+    }
+
     interface OnPageChangeListener {
-        fun prevPage()
-
-        fun nextPage()
-
         fun currentPage(page: Int, isPrevious: Boolean)
+        fun onStageChange(state: STATE)
     }
 
     enum class STATE {
-        PREV_PAGE, NEXT_PAGE, COLLAPSED, EXPANDED
+        PREV_PAGE, NEXT_PAGE, COLLAPSED, EXPANDED, DRAGGING, ANIMATING
     }
 
     enum class ORIENTATION(val value: Int) {
