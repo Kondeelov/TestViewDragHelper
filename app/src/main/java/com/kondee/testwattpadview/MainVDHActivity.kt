@@ -19,13 +19,13 @@ class MainVDHActivity : AppCompatActivity() {
 
     private fun initInstance() {
 
-        layout_container.setFragment(supportFragmentManager, TestSlidingViewVerticalFragment.newInstance(page), 0)
+        layout_container.setFragment(supportFragmentManager, TestSlidingViewVerticalFragment.newInstance(page))
 
         layout_container.setPageSize(4)
 
         layout_container.setOnPageChangeListener(object : SlidingPageLayoutV2.OnPageChangeListener {
 
-            override fun onStageChange(state: SlidingPageLayoutV2.STATE) {
+            override fun onStateChange(state: SlidingPageLayoutV2.STATE) {
 
             }
 
@@ -33,8 +33,7 @@ class MainVDHActivity : AppCompatActivity() {
                 Log.d("Kondee", "currentPage : $page")
                 layout_container.setFragment(
                     supportFragmentManager,
-                    TestSlidingViewVerticalFragment.newInstance(page + 1, isPrevious),
-                    page
+                    TestSlidingViewVerticalFragment.newInstance(page + 1, isPrevious)
                 )
             }
         })
