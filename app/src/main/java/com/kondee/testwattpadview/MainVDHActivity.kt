@@ -30,7 +30,6 @@ class MainVDHActivity : AppCompatActivity() {
             }
 
             override fun currentPage(page: Int, isPrevious: Boolean) {
-                Log.d("Kondee", "currentPage : $page")
                 layout_container.setFragment(
                     supportFragmentManager,
                     TestSlidingViewVerticalFragment.newInstance(page + 1, isPrevious)

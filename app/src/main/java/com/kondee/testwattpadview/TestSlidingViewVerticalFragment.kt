@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.SimpleItemAnimator
 import com.kondee.testwattpadview.recyclerview.adapter.TestVDHAdapter
 import com.kondee.testwattpadview.service.HttpManager
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -14,12 +15,18 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.fragment_test_sliding_view_vertical.*
 
-class TestSlidingViewVerticalFragment : Fragment() {
+class TestSlidingViewVerticalFragment : Fragment(), isPrevious {
+
+    override var isPrevious: Boolean = false
 
     private val compositeDisposable = CompositeDisposable()
     private val mAdapter = TestVDHAdapter()
 
-    private var isPrevious: Boolean = false
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        Log.d("Kondee", "onCreate : ")
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_test_sliding_view_vertical, container, false)
@@ -32,31 +39,34 @@ class TestSlidingViewVerticalFragment : Fragment() {
     }
 
     private fun initInstance() {
-        isPrevious = arguments?.getBoolean(KEY_IS_PREVIOUS) ?: false
+        Log.d("Kondee", "initInstance : ")
 
-        callServiceGetUser(arguments?.getInt(KEY_PAGE, 1) ?: 1)
+        val page = arguments?.getInt(KEY_PAGE, 1) ?: 1
+
+        callServiceGetUser(page)
 
         recycler_view.apply {
             layoutManager = LinearLayoutManager(activity)
             adapter = mAdapter
+            itemAnimator = null
         }
     }
 
     private fun callServiceGetUser(page: Int) {
         compositeDisposable.add(
-                HttpManager.service.getUsers(page)
-                        .subscribeOn(Schedulers.newThread())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe({ t ->
-                            t?.let {
-                                mAdapter.setData(t)
-                                if (isPrevious) {
-                                    recycler_view?.scrollToPosition(mAdapter.itemCount - 1)
-                                }
-                            }
-                        }, { t ->
-                            Log.w("Kondee", t)
-                        })
+            HttpManager.service.getUsers(page)
+                .subscribeOn(Schedulers.newThread())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ t ->
+                    t?.let {
+                        mAdapter.setData(t)
+                        if (isPrevious) {
+                            recycler_view?.scrollToPosition(mAdapter.itemCount - 1)
+                        }
+                    }
+                }, { t ->
+                    Log.w("Kondee", t)
+                })
         )
     }
 
@@ -73,7 +83,7 @@ class TestSlidingViewVerticalFragment : Fragment() {
             val fragment = TestSlidingViewVerticalFragment()
             val bundle = Bundle()
             bundle.putInt(KEY_PAGE, page)
-            bundle.putBoolean(KEY_IS_PREVIOUS, isPrevious)
+//            bundle.putBoolean(KEY_IS_PREVIOUS, isPrevious)
             fragment.arguments = bundle
             return fragment
         }

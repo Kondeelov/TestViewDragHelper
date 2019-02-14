@@ -2,22 +2,20 @@ package com.kondee.testwattpadview
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Build
 import android.os.Handler
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.IdRes
 import androidx.annotation.IntRange
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.customview.widget.ViewDragHelper
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
+import androidx.fragment.app.FragmentTransaction
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
@@ -71,15 +69,26 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
                             shouldClearView = true
                         }
 
-                        view?.visibility = View.VISIBLE
+                        mAdapter?.detachFragment(mPage)
+
+                        mAdapter?.setCurrentPosition(slidingViewId, mPage - 1, true)
+
+//                        view?.visibility = View.VISIBLE
                     } else if (top + dy < -it.height) {
                         it.offsetTopAndBottom(-it.top)
                         it.offsetTopAndBottom(it.height)
                     }
                 }
+//                else if (mLastState == STATE.EXPANDED) {
+//                    if (dy < 0 && slidingView?.findViewById<View>(mScrollChildId)?.canScrollVertically(1) == true) {
+//                        return Math.max(top, 0)
+//                    } else if (dy > 0 && slidingView?.findViewById<View>(mScrollChildId)?.canScrollVertically(-1) == true) {
+//                        return Math.max(top, 0)
+//                    }
+//                }
 
                 if (it.top in 1..height && shouldClearView) {
-                    view?.visibility = View.GONE
+//                    view?.visibility = View.GONE
                 }
             }
 
@@ -260,7 +269,7 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
 //                            .runOnCommit {
 //                                view?.visibility = View.GONE
 //                            }
-//                            .commit()
+//                            .commitAllowingStateLose()
 //
 //                        lastFragment = currentFragment
 //                    }
@@ -284,9 +293,7 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
     private var lastY: Float = 0f
     private var lastX: Float = 0f
 
-    private var mPageListener: SlidingPageLayoutV3.OnPageChangeListener? = null
-
-    private var view: View? = null
+//    private var view: View? = null
 
     override fun onFinishInflate() {
         super.onFinishInflate()
@@ -307,20 +314,20 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
             slidingView = findViewById(slidingViewId)
         }
 
-        if (slidingView is ViewGroup) {
-            view = View(context)
-            view?.setBackgroundColor(ContextCompat.getColor(context, R.color.colorWhite))
-            view?.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-
-            view?.bringToFront()
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                view?.elevation = 8f
-            }
-            view?.visibility = View.GONE
-
-            (slidingView as FrameLayout).addView(view, (slidingView as ViewGroup).childCount)
-        }
+//        if (slidingView is ViewGroup) {
+//            view = View(context)
+//            view?.setBackgroundColor(ContextCompat.getColor(context, R.color.colorWhite))
+//            view?.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+//
+//            view?.bringToFront()
+//
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+//                view?.elevation = 8f
+//            }
+//            view?.visibility = View.GONE
+//
+//            (slidingView as FrameLayout).addView(view, (slidingView as ViewGroup).childCount)
+//        }
     }
 
     private var isNextView: Boolean = false
@@ -338,15 +345,15 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
 
                     isNextView = false
 
+                    mAdapter?.detachFragment(mPage)
+
                     if (mLastState == STATE.EXPANDED) {
                         mPage += 1
 
                         isNextView = true
                     }
 
-                    view?.visibility = View.VISIBLE
-
-                    getFragment()
+//                    view?.visibility = View.VISIBLE
 
                     mPageListener?.currentPage(mPage)
 
@@ -360,13 +367,13 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
                 }
                 STATE.PREV_PAGE -> {
 
+                    mAdapter?.detachFragment(mPage)
+
                     if (mLastState == STATE.COLLAPSED) {
                         mPage -= 1
                     }
 
-                    view?.visibility = View.VISIBLE
-
-                    getFragment()
+//                    view?.visibility = View.VISIBLE
 
                     mPageListener?.currentPage(mPage, true)
 
@@ -387,16 +394,6 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
             }
 
             stateSubject.onNext(mState)
-        }
-    }
-
-    private fun getFragment() {
-        if (mPage - 1 > 0) {
-            mAdapter?.adTachFragment(slidingViewId, mPage - 1)
-        }
-        mAdapter?.adTachFragment(slidingViewId, mPage)
-        if (mPage + 1 <= mSize) {
-            mAdapter?.adTachFragment(slidingViewId, mPage + 1)
         }
     }
 
@@ -443,32 +440,31 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
                     return true
                 }
 
-//                val rootFragment = currentFragment?.view as ViewGroup?
-//                val scrollChild = rootFragment?.findViewById(mScrollChildId) as View?
-//
-//                if (mOrientation == ORIENTATION.VERTICAL) {
-//
-//                    if (lastY < ev.y) {
-//                        if (scrollChild?.canScrollVertically(-1) == true) {
-//                            return false
-//                        }
-//                    } else if (lastY > ev.y) {
-//                        if (scrollChild?.canScrollVertically(1) == true) {
-//                            return false
-//                        }
-//                    }
-//                } else {
-//
-//                    if (lastX < ev.x) {
-//                        if (scrollChild?.canScrollHorizontally(-1) == true) {
-//                            return false
-//                        }
-//                    } else if (lastX > ev.x) {
-//                        if (scrollChild?.canScrollHorizontally(1) == true) {
-//                            return false
-//                        }
-//                    }
-//                }
+                val scrollChild = slidingView?.findViewById(mScrollChildId) as View?
+
+                if (mOrientation == ORIENTATION.VERTICAL) {
+
+                    if (lastY < ev.y) {
+                        if (scrollChild?.canScrollVertically(-1) == true) {
+                            return false
+                        }
+                    } else if (lastY > ev.y) {
+                        if (scrollChild?.canScrollVertically(1) == true) {
+                            return false
+                        }
+                    }
+                } else {
+
+                    if (lastX < ev.x) {
+                        if (scrollChild?.canScrollHorizontally(-1) == true) {
+                            return false
+                        }
+                    } else if (lastX > ev.x) {
+                        if (scrollChild?.canScrollHorizontally(1) == true) {
+                            return false
+                        }
+                    }
+                }
             }
             MotionEvent.ACTION_UP -> {
                 if (Math.abs(ev.x - lastX) < scaledTouchSlop && Math.abs(ev.y - lastY) < scaledTouchSlop /*&& currentTime - lastTime <= ViewConfiguration.getJumpTapTimeout()*/) {
@@ -612,8 +608,6 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
 
 //    private var currentFragment: Fragment? = null
 
-    private var lastFragment: Fragment? = null
-
 //    private var mFragmentManager: FragmentManager? = null
 
 //    fun setFragment(fm: FragmentManager, fragment: Fragment) {
@@ -634,6 +628,8 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
         }
 
         mPage = page
+
+        mAdapter?.setCurrentPosition(slidingViewId, mPage)
     }
 
     private var mScrollChildId: Int = -1
@@ -654,6 +650,10 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
 
     fun setAdapter(adapter: SlidingPageAdapter) {
         mAdapter = adapter
+
+        mSize = mAdapter?.getItemCount() ?: 0
+
+        mPageListener?.currentPage(mPage)
     }
 
     interface OnPageChangeListener {
@@ -682,26 +682,132 @@ class SlidingPageLayoutV3 @JvmOverloads constructor(context: Context, attrs: Att
     companion object {
         const val VELOCITY_THRESHOLD = 3000
     }
+
+    private var mPageListener: SlidingPageLayoutV3.OnPageChangeListener? = object : OnPageChangeListener {
+        override fun currentPage(page: Int, isPrevious: Boolean) {
+            mAdapter?.setCurrentPosition(slidingViewId, page, isPrevious)
+        }
+
+        override fun onStateChange(state: STATE) {
+
+        }
+    }
+}
+
+interface isPrevious {
+    var isPrevious: Boolean
 }
 
 abstract class SlidingPageAdapter(private val fragmentManager: FragmentManager) {
 
-    abstract fun getItem(position: Int): Fragment
+    private var fragmentTransaction: FragmentTransaction? = null
+
+    init {
+        createFragmentTransaction()
+    }
+
+    abstract fun getItem(position: Int, isPrevious: Boolean = false): Fragment
 
     abstract fun getItemCount(): Int
 
-    internal fun adTachFragment(containerId: Int, position: Int) {
+    private var currentFragment: Fragment? = null
+
+    internal fun adTachFragment(containerId: Int, position: Int, isPrevious: Boolean) {
+
         val fragmentTag = getFragmentTag(position)
         val fragment = fragmentManager.findFragmentByTag(fragmentTag)
         if (fragment == null) {
-            fragmentManager.beginTransaction()
-                .add(containerId, getItem(position), fragmentTag)
+            val item = getItem(position, isPrevious)
+            item as isPrevious
+            item.isPrevious = isPrevious
+            fragmentTransaction?.add(containerId, item, fragmentTag)
         } else {
-            fragmentManager.beginTransaction().attach(fragment)
+            if (fragment.isDetached) {
+                fragment as isPrevious
+                fragment.isPrevious = isPrevious
+                fragmentTransaction?.attach(fragment)
+            }
+        }
+
+        currentFragment = fragment
+    }
+
+    internal fun commit() {
+        if (fragmentTransaction != null) {
+            fragmentTransaction?.commit()
+            fragmentTransaction = null
+            fragmentManager.executePendingTransactions()
         }
     }
 
+    private var mPosition: Int = 0
+
+    fun setCurrentPosition(containerId: Int, position: Int, isPrevious: Boolean = false) {
+        if (mPosition == position) {
+            return
+        }
+        mPosition = position
+
+        createFragmentTransaction()
+
+        if (position - 1 >= 0) {
+            prepareFragment(position - 1)
+        }
+
+        if (position + 1 < getItemCount()) {
+            prepareFragment(position + 1)
+        }
+
+        adTachFragment(containerId, position, isPrevious)
+
+        commit()
+    }
+
+    private fun prepareFragment(position: Int) {
+
+        val fragmentTag = getFragmentTag(position)
+        val fragment = fragmentManager.findFragmentByTag(fragmentTag)
+
+        if (fragment == null) {
+            fragmentTransaction?.attach(getItem(position))
+        } else {
+            if (!fragment.isDetached) {
+                fragmentTransaction?.detach(fragment)
+            }
+        }
+    }
+
+    fun detachFragment(position: Int) {
+        createFragmentTransaction()
+
+        val fragment = fragmentManager.findFragmentByTag(getFragmentTag(position))
+        fragment?.let {
+            fragmentTransaction?.detach(it)
+        }
+
+        commit()
+    }
+
+    private fun createFragmentTransaction() {
+        if (fragmentTransaction == null) {
+            fragmentTransaction = fragmentManager.beginTransaction()
+            (fragmentTransaction as FragmentTransaction).setReorderingAllowed(true)
+        }
+    }
+
+    private var offScreenLimit = 1
+
+    fun setOffScreenLimit(@IntRange(from = 1, to = Long.MAX_VALUE) page: Int) {
+        offScreenLimit = page
+    }
+
+    fun getCurrentPosition(): Int {
+        return mPosition
+    }
+
     private fun getFragmentTag(position: Int): String {
-        return "sliding_view:$position"
+        val tag = "sliding_view:$position"
+        Log.d("Kondee", "getFragmentTag : $tag")
+        return tag
     }
 }

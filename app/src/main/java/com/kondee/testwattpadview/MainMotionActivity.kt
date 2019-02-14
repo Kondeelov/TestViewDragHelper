@@ -94,8 +94,6 @@ class MainMotionActivity : AppCompatActivity() {
                     return true
                 } else if (layout_motion_container.progress == 0f) {
 
-                    Log.d("Kondee", "${nested_scroll_view.y} ${layout_motion_container.height}")
-
 //                    if (nested_scroll_view.y + scrollY >= layout_motion_container.height - dp2px(32)) {
 //                        scrollY = 0f
 //                    }
