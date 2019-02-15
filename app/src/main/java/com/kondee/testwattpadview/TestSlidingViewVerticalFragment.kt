@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.SimpleItemAnimator
 import com.kondee.testwattpadview.recyclerview.adapter.TestVDHAdapter
 import com.kondee.testwattpadview.service.HttpManager
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -15,7 +14,7 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.fragment_test_sliding_view_vertical.*
 
-class TestSlidingViewVerticalFragment : Fragment(), isPrevious {
+class TestSlidingViewVerticalFragment : Fragment(), hasPrevious {
 
     override var isPrevious: Boolean = false
 
@@ -83,7 +82,7 @@ class TestSlidingViewVerticalFragment : Fragment(), isPrevious {
             val fragment = TestSlidingViewVerticalFragment()
             val bundle = Bundle()
             bundle.putInt(KEY_PAGE, page)
-//            bundle.putBoolean(KEY_IS_PREVIOUS, isPrevious)
+//            bundle.putBoolean(KEY_IS_PREVIOUS, hasPrevious)
             fragment.arguments = bundle
             return fragment
         }

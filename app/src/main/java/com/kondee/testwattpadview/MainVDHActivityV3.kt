@@ -17,10 +17,12 @@ class MainVDHActivityV3 : AppCompatActivity() {
     }
 
     private fun initInstance() {
+
         val adapter = MySlidingPageAdapter(supportFragmentManager)
         layout_container.setScrollableChildId(R.id.recycler_view)
-        layout_container.setCurrentPage(15)
         layout_container.setAdapter(adapter)
+
+        layout_container.setCurrentPage(15)
     }
 
     private fun dp2px(dp: Number): Float {
@@ -32,14 +34,13 @@ class MainVDHActivityV3 : AppCompatActivity() {
         override fun getItem(position: Int, isPrevious: Boolean): Fragment {
             val page = position % 4
             val fragment = TestSlidingViewVerticalFragment.newInstance(page + 1)
-            fragment as isPrevious
+            fragment as hasPrevious
             fragment.isPrevious = isPrevious
             return fragment
         }
 
         override fun getItemCount(): Int {
-            return 16
+            return 4
         }
     }
-
 }
